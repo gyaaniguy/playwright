@@ -14,6 +14,8 @@ declare(strict_types=1);
 
 namespace Playwright\Locator;
 
+use Playwright\Regex;
+
 /**
  * Helper for generating Playwright role selectors with accessibility focused options.
  *
@@ -24,7 +26,6 @@ final class RoleSelectorBuilder
     /** @var array<int, string> */
     private const ROLE_SPECIFIC_KEYS = [
         'name',
-        'nameRegex',
         'exact',
         'checked',
         'disabled',
@@ -43,13 +44,9 @@ final class RoleSelectorBuilder
         $normalizedRole = self::normalizeRole($role);
         $selector = 'internal:role='.$normalizedRole;
 
-        $nameFragment = self::buildNameAttribute($options);
+        $nameFragment = self::buildNameAttribute($options, !empty($options['exact']));
         if (null !== $nameFragment) {
             $selector .= $nameFragment;
-        }
-
-        if (!empty($options['exact'])) {
-            $selector .= '[exact]';
         }
 
         $selector .= self::buildBooleanAttribute('checked', $options['checked'] ?? null);
@@ -93,27 +90,20 @@ final class RoleSelectorBuilder
     /**
      * @param array<string, mixed> $options
      */
-    private static function buildNameAttribute(array $options): ?string
+    private static function buildNameAttribute(array $options, bool $exact = false): ?string
     {
-        if (array_key_exists('nameRegex', $options)) {
-            $regexFragment = self::formatRegexAttribute('name', $options['nameRegex']);
-            if (null !== $regexFragment) {
-                return $regexFragment;
-            }
-        }
-
         if (!array_key_exists('name', $options)) {
             return null;
         }
 
         $nameOption = $options['name'];
 
-        if (is_array($nameOption) && array_key_exists('regex', $nameOption)) {
-            return self::formatRegexAttribute('name', $nameOption);
+        if ($nameOption instanceof Regex) {
+            return '[name='.$nameOption->pattern.']';
         }
 
         if ($nameOption instanceof \Stringable) {
-            return '[name="'.self::escapeAttributeValue((string) $nameOption).'"]';
+            $nameOption = (string) $nameOption;
         }
 
         if (is_string($nameOption)) {
@@ -122,7 +112,11 @@ final class RoleSelectorBuilder
                 return null;
             }
 
-            return '[name="'.self::escapeAttributeValue($nameOption).'"]';
+            if ($exact) {
+                return '[name="'.self::escapeAttributeValue($nameOption).'"]';
+            }
+
+            return '[name=/'.preg_quote($nameOption, '/').'/i]';
         }
 
         return null;
@@ -159,72 +153,5 @@ final class RoleSelectorBuilder
     private static function escapeAttributeValue(string $value): string
     {
         return addcslashes($value, '\\"');
-    }
-
-    private static function escapeRegexPattern(string $pattern): string
-    {
-        return addcslashes($pattern, '/');
-    }
-
-    private static function formatRegexAttribute(string $attribute, mixed $value): ?string
-    {
-        $pattern = null;
-        $flags = '';
-
-        if (is_string($value) || $value instanceof \Stringable) {
-            $pattern = (string) $value;
-        } elseif (is_array($value)) {
-            $patternValue = $value['pattern'] ?? $value['regex'] ?? null;
-            if (is_string($patternValue) || $patternValue instanceof \Stringable) {
-                $pattern = (string) $patternValue;
-            }
-
-            $flagsValue = $value['flags'] ?? null;
-            if (is_string($flagsValue)) {
-                $flags = $flagsValue;
-            }
-
-            $ignoreCase = $value['ignoreCase'] ?? $value['ignore_case'] ?? null;
-            if (true === $ignoreCase && !str_contains($flags, 'i')) {
-                $flags .= 'i';
-            }
-        }
-
-        if (null === $pattern) {
-            return null;
-        }
-
-        $pattern = trim($pattern);
-        if ('' === $pattern) {
-            return null;
-        }
-
-        if ('/' !== $pattern[0]) {
-            $pattern = '/'.self::escapeRegexPattern($pattern).'/';
-        }
-
-        if ('' !== $flags) {
-            $pattern .= self::sanitizeRegexFlags($flags);
-        }
-
-        return '['.$attribute.'='.$pattern.']';
-    }
-
-    private static function sanitizeRegexFlags(string $flags): string
-    {
-        $valid = ['d', 'g', 'i', 'm', 's', 'u', 'y'];
-        $unique = [];
-
-        foreach (str_split($flags) as $flag) {
-            if (!in_array($flag, $valid, true)) {
-                continue;
-            }
-            if (in_array($flag, $unique, true)) {
-                continue;
-            }
-            $unique[] = $flag;
-        }
-
-        return implode('', $unique);
     }
 }

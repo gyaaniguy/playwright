@@ -25,6 +25,7 @@ use Playwright\Locator\Options\GetByRoleOptions;
 use Playwright\Locator\Options\LocatorOptions;
 use Playwright\Page\Page;
 use Playwright\Page\PageEventHandlerInterface;
+use Playwright\Regex;
 use Playwright\Transport\TransportInterface;
 
 #[CoversClass(Page::class)]
@@ -86,10 +87,144 @@ class PageTest extends TestCase
         $locator = $this->page->getByRole('button', $options);
 
         $this->assertInstanceOf(Locator::class, $locator);
-        $result = $locator->getOptions();
+        $this->assertSame('internal:role=button[checked]', $locator->getSelector());
+        $this->assertSame('Loading', $locator->getOptions()['hasNotText']);
+    }
 
-        $this->assertTrue($result['checked']);
-        $this->assertSame('Loading', $result['hasNotText']);
+    public function testGetByTextBuildsCaseInsensitiveSelector(): void
+    {
+        $locator = $this->page->getByText('Hello World');
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:text=/Hello World/i', $locator->getSelector());
+    }
+
+    public function testGetByTextBuildsExactSelector(): void
+    {
+        $locator = $this->page->getByText('Hello World', ['exact' => true]);
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:text="Hello World"', $locator->getSelector());
+    }
+
+    public function testGetByPlaceholderBuildsCaseInsensitiveSelector(): void
+    {
+        $locator = $this->page->getByPlaceholder('Username');
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:attr=[placeholder=/Username/i]', $locator->getSelector());
+    }
+
+    public function testGetByPlaceholderBuildsExactSelector(): void
+    {
+        $locator = $this->page->getByPlaceholder('Username', ['exact' => true]);
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:attr=[placeholder="Username"]', $locator->getSelector());
+    }
+
+    public function testGetByTitleBuildsCaseInsensitiveSelector(): void
+    {
+        $locator = $this->page->getByTitle('Page Title');
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:attr=[title=/Page Title/i]', $locator->getSelector());
+    }
+
+    public function testGetByTitleBuildsExactSelector(): void
+    {
+        $locator = $this->page->getByTitle('Page Title', ['exact' => true]);
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:attr=[title="Page Title"]', $locator->getSelector());
+    }
+
+    public function testGetByAltTextBuildsCaseInsensitiveSelector(): void
+    {
+        $locator = $this->page->getByAltText('Logo');
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:attr=[alt=/Logo/i]', $locator->getSelector());
+    }
+
+    public function testGetByAltTextBuildsExactSelector(): void
+    {
+        $locator = $this->page->getByAltText('Logo', ['exact' => true]);
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:attr=[alt="Logo"]', $locator->getSelector());
+    }
+
+    public function testGetByLabelBuildsCaseInsensitiveSelector(): void
+    {
+        $locator = $this->page->getByLabel('Password');
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:label=/Password/i', $locator->getSelector());
+    }
+
+    public function testGetByLabelBuildsExactSelector(): void
+    {
+        $locator = $this->page->getByLabel('Password', ['exact' => true]);
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:label="Password"', $locator->getSelector());
+    }
+
+    public function testGetByTextWithRegex(): void
+    {
+        $locator = $this->page->getByText(new Regex('/hello/i'));
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:text=/hello/i', $locator->getSelector());
+    }
+
+    public function testGetByTextWithRegexIgnoresExact(): void
+    {
+        $locator = $this->page->getByText(new Regex('/hello/'), ['exact' => true]);
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:text=/hello/', $locator->getSelector());
+    }
+
+    public function testGetByPlaceholderWithRegex(): void
+    {
+        $locator = $this->page->getByPlaceholder(new Regex('/user/i'));
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:attr=[placeholder=/user/i]', $locator->getSelector());
+    }
+
+    public function testGetByTitleWithRegex(): void
+    {
+        $locator = $this->page->getByTitle(new Regex('/title/i'));
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:attr=[title=/title/i]', $locator->getSelector());
+    }
+
+    public function testGetByAltTextWithRegex(): void
+    {
+        $locator = $this->page->getByAltText(new Regex('/logo/i'));
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:attr=[alt=/logo/i]', $locator->getSelector());
+    }
+
+    public function testGetByLabelWithRegex(): void
+    {
+        $locator = $this->page->getByLabel(new Regex('/pass/i'));
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:label=/pass/i', $locator->getSelector());
+    }
+
+    public function testGetByRoleWithRegexName(): void
+    {
+        $locator = $this->page->getByRole('button', ['name' => new Regex('/Submit/i')]);
+
+        $this->assertInstanceOf(Locator::class, $locator);
+        $this->assertSame('internal:role=button[name=/Submit/i]', $locator->getSelector());
     }
 
     public function testGotoSendsCommandAndReturnsResponse(): void

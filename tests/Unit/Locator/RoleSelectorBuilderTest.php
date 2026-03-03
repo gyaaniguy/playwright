@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Playwright\Locator\RoleSelectorBuilder;
+use Playwright\Regex;
 
 #[CoversClass(RoleSelectorBuilder::class)]
 final class RoleSelectorBuilderTest extends TestCase
@@ -42,16 +43,47 @@ final class RoleSelectorBuilderTest extends TestCase
         ]);
 
         $this->assertSame(
-            'internal:role=heading[name="Product Overview"][exact][expanded=false][pressed="mixed"][level=2]',
+            'internal:role=heading[name="Product Overview"][expanded=false][pressed="mixed"][level=2]',
             $selector
         );
+    }
+
+    #[Test]
+    public function itBuildsSelectorWithNameCaseInsensitiveByDefault(): void
+    {
+        $selector = RoleSelectorBuilder::buildSelector('button', [
+            'name' => 'Submit',
+        ]);
+
+        $this->assertSame('internal:role=button[name=/Submit/i]', $selector);
+    }
+
+    #[Test]
+    public function itBuildsSelectorWithNameExactFalse(): void
+    {
+        $selector = RoleSelectorBuilder::buildSelector('button', [
+            'name' => 'Submit',
+            'exact' => false,
+        ]);
+
+        $this->assertSame('internal:role=button[name=/Submit/i]', $selector);
+    }
+
+    #[Test]
+    public function itEscapesRegexMetacharactersInName(): void
+    {
+        $selector = RoleSelectorBuilder::buildSelector('button', [
+            'name' => 'Click (here)',
+        ]);
+
+        $this->assertSame('internal:role=button[name=/Click \(here\)/i]', $selector);
     }
 
     #[Test]
     public function itBuildsSelectorWithRegexName(): void
     {
         $selector = RoleSelectorBuilder::buildSelector('link', [
-            'nameRegex' => '/^Docs?/i',
+            'name' => new Regex('/^Docs?/i'),
         ]);
 
         $this->assertSame('internal:role=link[name=/^Docs?/i]', $selector);
